@@ -28,6 +28,48 @@ Optional flags:
 - `--yes` skips the motion confirmation prompt.
 - `--force` bypasses the position-mode check.
 
+## Read Position (Torque Off)
+The `read_position.py` script reads present position for a single servo and explicitly leaves torque disabled.
+
+```bash
+/home/johno/pipette/.venv/bin/python /home/johno/pipette/read_position.py
+```
+
+Optional flags:
+- `--id` set Dynamixel ID (default 1).
+- `--dev` set serial device (default `/dev/ttyACM0`).
+- `--baud` set baud rate (default `1_000_000`).
+
+## Torque Off
+The `torque_off.py` script explicitly disables torque and reads back the torque state.
+
+```bash
+/home/johno/pipette/.venv/bin/python /home/johno/pipette/torque_off.py
+```
+
+Optional flags:
+- `--id` set Dynamixel ID (default 1).
+- `--dev` set serial device (default `/dev/ttyACM0`).
+- `--baud` set baud rate (default `1_000_000`).
+
+## Cycle Between Two Positions
+The `cycle_positions.py` script alternates between two goal positions until interrupted. On Ctrl-C, it disables torque.
+
+```bash
+/home/johno/pipette/.venv/bin/python /home/johno/pipette/cycle_positions.py
+```
+
+Defaults:
+- `--pos-a 1192` and `--pos-b 1131` (from recent readings)
+- `--wait 1.0` seconds
+- gentle profile: `--velocity 20`, `--accel 5`
+
+Optional flags:
+- `--pos-a`, `--pos-b` set goal positions (ticks).
+- `--wait` time to wait at each position (seconds).
+- `--velocity`, `--accel` set profile values.
+- `--id`, `--dev`, `--baud` set target ID and connection settings.
+
 ## Example: Read Position and Move ID 1
 Below is a minimal, self-contained example that reads the current position and then moves to an absolute goal position. It assumes **Protocol 2.0** and a 0–4095 position range (360° per rev). Adjust control table addresses or scaling if your model differs.
 
