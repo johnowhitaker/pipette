@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#f5efe2">
+    <meta name="description" content="Draw a tiny picture and watch a robot paint it with liquid pixels.">
+    <title>Pipette Pixels</title>
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body class="public-page">
+    <div class="paper-noise" aria-hidden="true"></div>
+    <main class="public-shell">
+      <header class="public-hero">
+        <div>
+          <p class="eyebrow"><span class="live-dot"></span> Live lab experiment</p>
+          <h1>Pipette<br><em>Pixels</em></h1>
+        </div>
+        <div class="queue-ticket" aria-live="polite">
+          <span id="queue-count">—</span>
+          <small>in the queue</small>
+        </div>
+      </header>
+
+      <section class="public-intro">
+        <p>Draw something tiny. A robot pipette will paint it, one liquid drop at a time.</p>
+        <span id="canvas-size-label" class="specimen-label">8 × 8 canvas</span>
+      </section>
+
+      <section class="editor-card" aria-labelledby="editor-title">
+        <div class="editor-heading">
+          <div>
+            <span class="step-number">01</span>
+            <h2 id="editor-title">Pick a color &amp; draw</h2>
+          </div>
+          <button id="clear-button" class="text-button" type="button">Clear</button>
+        </div>
+
+        <div id="palette" class="palette" aria-label="Available colors"></div>
+        <div class="canvas-frame">
+          <div id="pixel-grid" class="pixel-grid" role="grid" aria-label="Pixel art canvas"></div>
+        </div>
+        <p class="canvas-hint">Tap or drag across the squares. Use the paper swatch to erase.</p>
+
+        <form id="submit-form" class="submit-panel">
+          <label for="artist-name">
+            <span><span class="step-number">02</span> Sign your piece <small>(optional)</small></span>
+            <input id="artist-name" name="artist_name" maxlength="40" autocomplete="nickname" placeholder="Your name or initials">
+          </label>
+          <button id="submit-button" class="primary-button" type="submit">
+            <span>Send to the robot</span>
+            <span aria-hidden="true">→</span>
+          </button>
+          <p id="form-message" class="form-message" role="alert"></p>
+        </form>
+      </section>
+
+      <footer class="public-footer">
+        <span>CNC pipette + watercolor paper</span>
+        <a id="learn-more-link" href="https://johnowhitaker.dev" target="_blank" rel="noreferrer">How does this work? ↗</a>
+      </footer>
+    </main>
+
+    <dialog id="success-dialog" class="success-dialog">
+      <div class="success-mark" aria-hidden="true">✓</div>
+      <p class="eyebrow">Submitted</p>
+      <h2>Your pixels are queued!</h2>
+      <p id="success-copy">Keep an eye on the robot to see them become real.</p>
+      <button id="draw-another" class="primary-button" type="button">Draw another</button>
+    </dialog>
+
+    <script src="/static/public.js" defer></script>
+  </body>
+</html>
+

@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#161a18">
+    <meta name="robots" content="noindex,nofollow">
+    <title>Operator Console · Pipette Pixels</title>
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body class="admin-page">
+    <main id="login-view" class="login-view">
+      <form id="login-form" class="login-card">
+        <div class="machine-glyph" aria-hidden="true"><i></i><i></i><i></i></div>
+        <p class="eyebrow">Restricted controls</p>
+        <h1>Operator console</h1>
+        <p>Calibration and machine motion live behind this door.</p>
+        <label for="password">Password</label>
+        <input id="password" type="password" autocomplete="current-password" required autofocus>
+        <button class="primary-button" type="submit">Let me in</button>
+        <p id="login-message" class="form-message" role="alert"></p>
+        <a href="/">← Back to the drawing canvas</a>
+      </form>
+    </main>
+
+    <div id="console-view" class="console-view" hidden>
+      <header class="console-header">
+        <div>
+          <p class="eyebrow">Pipette Pixels</p>
+          <h1>Operator console</h1>
+        </div>
+        <div class="header-actions">
+          <span id="mode-badge" class="mode-badge">Simulation</span>
+          <a href="/" target="_blank">Public canvas ↗</a>
+          <button id="logout-button" class="text-button" type="button">Log out</button>
+        </div>
+      </header>
+
+      <nav class="console-tabs" aria-label="Console sections">
+        <button class="active" type="button" data-tab="setup">Setup</button>
+        <button type="button" data-tab="liquids">Liquids &amp; servo</button>
+        <button type="button" data-tab="queue">Print queue <span id="tab-queue-count">0</span></button>
+      </nav>
+
+      <main class="console-main">
+        <section id="tab-setup" class="tab-panel active">
+          <div id="simulation-banner" class="safety-banner">
+            <strong>Simulation mode</strong>
+            <span>Controls update a virtual machine. No connected hardware will move.</span>
+          </div>
+
+          <article class="admin-card">
+            <div class="card-heading">
+              <div><span class="card-index">A</span><h2>Connections</h2></div>
+              <button id="scan-ports" class="secondary-button" type="button">Scan ports</button>
+            </div>
+            <div class="connection-grid">
+              <div class="connection-block">
+                <div class="connection-title"><span class="status-light" id="printer-light"></span><h3>Printer</h3></div>
+                <label>Port <input id="printer-port" value="/dev/ttyUSB0"></label>
+                <label>Baud <input id="printer-baud" type="number" value="115200"></label>
+                <button id="test-printer" class="secondary-button" type="button">Test connection</button>
+              </div>
+              <div class="connection-block">
+                <div class="connection-title"><span class="status-light" id="servo-light"></span><h3>Servo</h3></div>
+                <label>Port <input id="servo-port" value="/dev/ttyACM0"></label>
+                <div class="split-fields">
+                  <label>Baud <input id="servo-baud" type="number" value="1000000"></label>
+                  <label>ID <input id="servo-id" type="number" value="1"></label>
+                </div>
+                <button id="test-servo" class="secondary-button" type="button">Test connection</button>
+              </div>
+            </div>
+            <p id="ports-result" class="inline-note"></p>
+          </article>
+
+          <article class="admin-card">
+            <div class="card-heading">
+              <div><span class="card-index">B</span><h2>Paper workspace</h2></div>
+              <div id="position-readout" class="position-readout"><span>X —</span><span>Y —</span><span>Z —</span></div>
+            </div>
+            <div class="calibration-steps">
+              <section>
+                <span class="calibration-number">1</span>
+                <div>
+                  <h3>Set the top-left origin</h3>
+                  <p>Disable the steppers, place the pipette at the paper surface in the top-left corner, then make that point X0 Y0 Z0.</p>
+                  <div class="button-row">
+                    <button id="disable-steppers" class="secondary-button" type="button">Release steppers</button>
+                    <button id="set-origin" class="warning-button" type="button">Set current point as origin</button>
+                  </div>
+                </div>
+              </section>
+              <section>
+                <span class="calibration-number">2</span>
+                <div class="wide-control">
+                  <div class="section-line">
+                    <div><h3>Jog to the bottom-right</h3><p>Move in X and Y, then capture the opposite corner.</p></div>
+                    <label class="compact-label">Step
+                      <select id="jog-step"><option value="0.1">0.1 mm</option><option value="1" selected>1 mm</option><option value="10">10 mm</option></select>
+                    </label>
+                  </div>
+                  <div class="jog-layout">
+                    <div class="jog-pad" aria-label="XY jog controls">
+                      <button type="button" data-jog-axis="Y" data-jog-sign="-1">Y−</button>
+                      <button type="button" data-jog-axis="X" data-jog-sign="-1">X−</button>
+                      <button id="refresh-position" type="button" title="Refresh position">●</button>
+                      <button type="button" data-jog-axis="X" data-jog-sign="1">X+</button>
+                      <button type="button" data-jog-axis="Y" data-jog-sign="1">Y+</button>
+                    </div>
+                    <div class="z-jog">
+                      <strong>Z jog</strong>
+                      <p>Watch the tip and bed before moving Z.</p>
+                      <div class="button-row">
+                        <button type="button" data-jog-axis="Z" data-jog-sign="-1">Z−</button>
+                        <button type="button" data-jog-axis="Z" data-jog-sign="1">Z+</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="field-row capture-row">
+                    <label>Bottom-right X <input id="paper-x" type="number" step="0.001"></label>
+                    <label>Bottom-right Y <input id="paper-y" type="number" step="0.001"></label>
+                    <button id="capture-paper-corner" class="secondary-button" type="button">Use current X/Y</button>
+                  </div>
+                </div>
+              </section>
+              <section>
+                <span class="calibration-number">3</span>
+                <div class="wide-control">
+                  <h3>Set drawing clearances</h3>
+                  <div class="field-row">
+                    <label>Safe travel Z <input id="travel-z" type="number" step="0.1"></label>
+                    <label>Paper deposit Z <input id="deposit-z" type="number" step="0.1"></label>
+                    <label>Canvas <select id="grid-size"><option value="8">8 × 8</option><option value="10">10 × 10</option></select></label>
+                  </div>
+                  <p class="inline-note">Travel Z must clear the paper, clips, and all wells. Deposit Z is the pipette height when placing a drop.</p>
+                </div>
+              </section>
+            </div>
+          </article>
+
+          <article class="admin-card compact-card">
+            <div class="card-heading"><div><span class="card-index">C</span><h2>Event settings</h2></div></div>
+            <div class="field-row">
+              <label class="toggle-label"><input id="accepting-submissions" type="checkbox"><span>Accept public submissions</span></label>
+              <label class="grow-label">Learn more URL <input id="learn-more-url" type="url"></label>
+            </div>
+            <details class="advanced-settings">
+              <summary>Motion tuning</summary>
+              <div class="field-row">
+                <label>XY feed <input id="xy-feed" type="number"></label>
+                <label>Z feed <input id="z-feed" type="number"></label>
+                <label>Jog feed <input id="jog-feed" type="number"></label>
+                <label>Timeout (s) <input id="command-timeout" type="number" step="0.5"></label>
+              </div>
+            </details>
+            <div class="save-bar"><span>Changes are stored on this Pi.</span><button id="save-config" class="primary-button" type="button">Save setup</button></div>
+          </article>
+        </section>
+
+        <section id="tab-liquids" class="tab-panel">
+          <article class="admin-card">
+            <div class="card-heading">
+              <div><span class="card-index">A</span><h2>Pipette servo</h2></div>
+              <div class="servo-live">Current <strong id="servo-current">—</strong> ticks</div>
+            </div>
+            <p class="card-intro">Release torque to position the plunger by hand, read it, then capture each stage. Servo moves are non-blocking; the app uses the settle delay below.</p>
+            <div class="button-row">
+              <button id="read-servo" class="secondary-button" type="button">Read position</button>
+              <button id="release-servo" class="secondary-button" type="button">Release servo torque</button>
+            </div>
+            <div class="servo-positions">
+              <div class="servo-stage"><span>1</span><h3>Rest</h3><p>Plunger released; liquid is held.</p><input id="servo-rest" type="number"><button type="button" data-use-servo="rest">Use current</button><button type="button" data-test-servo="rest">Move here</button></div>
+              <div class="servo-stage"><span>2</span><h3>Draw / dispense</h3><p>Metered press before intake and at the paper.</p><input id="servo-draw" type="number"><button type="button" data-use-servo="draw">Use current</button><button type="button" data-test-servo="draw">Move here</button></div>
+              <div class="servo-stage"><span>3</span><h3>Purge</h3><p>Further press to clear the tip over a well.</p><input id="servo-purge" type="number"><button type="button" data-use-servo="purge">Use current</button><button type="button" data-test-servo="purge">Move here</button></div>
+            </div>
+            <div class="field-row tuning-row">
+              <label>Velocity <input id="servo-velocity" type="number"></label>
+              <label>Acceleration <input id="servo-acceleration" type="number"></label>
+              <label>Settle delay (ms) <input id="servo-settle" type="number"></label>
+            </div>
+            <div class="save-bar"><span>Test moves happen only when you press “Move here.”</span><button id="save-servo" class="primary-button" type="button">Save servo settings</button></div>
+          </article>
+
+          <article class="admin-card">
+            <div class="card-heading"><div><span class="card-index">B</span><h2>Color wells</h2></div><button id="add-color" class="secondary-button" type="button">+ Add color</button></div>
+            <p class="card-intro">Jog above a well, refresh the position, and use the current X/Y or Z values. Intake Z dips into liquid; purge Z stays safely above it.</p>
+            <div id="well-list" class="well-list"></div>
+          </article>
+        </section>
+
+        <section id="tab-queue" class="tab-panel">
+          <div class="queue-toolbar">
+            <div><p class="eyebrow">Live queue</p><h2 id="queue-heading">No pieces waiting</h2></div>
+            <div class="button-row"><button id="cancel-print" class="danger-button" type="button" hidden>Stop current print</button><button id="print-next" class="primary-button" type="button">Print next piece</button></div>
+          </div>
+          <div id="active-print"></div>
+          <div id="queue-list" class="job-grid"></div>
+          <h3 class="history-heading">Recent history</h3>
+          <div id="history-list" class="history-list"></div>
+        </section>
+      </main>
+      <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    </div>
+    <script src="/static/admin.js" defer></script>
+  </body>
+</html>
+

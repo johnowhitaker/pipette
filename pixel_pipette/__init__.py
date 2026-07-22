@@ -1,0 +1,1 @@
+"""Pipette Pixels web application."""
