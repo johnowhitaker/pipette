@@ -16,6 +16,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "grid_sizes": [8, 10],
     "accepting_submissions": True,
     "learn_more_url": "https://johnowhitaker.dev",
+    "queue": {
+        "start_mode": "manual",
+    },
     "devices": {
         "printer_port": "/dev/ttyUSB0",
         "printer_baud": 115200,
@@ -239,7 +242,9 @@ class Store:
     def list_jobs(self, limit: int = 100) -> list[dict[str, Any]]:
         with self._lock, self._connect() as db:
             rows = db.execute(
-                "SELECT * FROM jobs ORDER BY CASE status WHEN 'printing' THEN 0 WHEN 'queued' THEN 1 ELSE 2 END, id DESC LIMIT ?",
+                "SELECT * FROM jobs ORDER BY "
+                "CASE status WHEN 'waiting' THEN 0 WHEN 'printing' THEN 0 WHEN 'queued' THEN 1 ELSE 2 END, "
+                "CASE WHEN status IN ('waiting', 'printing', 'queued') THEN id END ASC, id DESC LIMIT ?",
                 (limit,),
             ).fetchall()
         return [self._job_from_row(row) for row in rows]
@@ -248,7 +253,9 @@ class Store:
         with self._lock, self._connect() as db:
             return int(db.execute("SELECT COUNT(*) AS n FROM jobs WHERE status='queued'").fetchone()["n"])
 
-    def claim_next_job(self) -> dict[str, Any] | None:
+    def claim_next_job(self, status: str = "printing") -> dict[str, Any] | None:
+        if status not in {"waiting", "printing"}:
+            raise ValueError(f"Invalid active job status: {status}")
         with self._lock, self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute("SELECT * FROM jobs WHERE status='queued' ORDER BY id LIMIT 1").fetchone()
@@ -256,8 +263,8 @@ class Store:
                 db.rollback()
                 return None
             db.execute(
-                "UPDATE jobs SET status='printing', started_at=?, error=NULL WHERE id=?",
-                (utc_now(), row["id"]),
+                "UPDATE jobs SET status=?, started_at=?, error=NULL WHERE id=?",
+                (status, utc_now(), row["id"]),
             )
             db.commit()
             updated = db.execute("SELECT * FROM jobs WHERE id=?", (row["id"],)).fetchone()
@@ -281,7 +288,7 @@ class Store:
         with self._lock, self._connect() as db:
             db.execute(
                 """UPDATE jobs SET status='failed', completed_at=?,
-                   error='The app restarted while this piece was printing.'
-                   WHERE status='printing'""",
+                   error='The app restarted while this piece was active.'
+                   WHERE status IN ('waiting', 'printing')""",
                 (utc_now(),),
             )

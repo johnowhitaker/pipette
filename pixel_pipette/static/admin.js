@@ -6,6 +6,12 @@ let currentPosition = null;
 let currentServoPosition = null;
 let toastTimer = null;
 
+const QUEUE_MODE_COPY = {
+  manual: "Queued pieces wait for you to press Print next in the admin console.",
+  printer_button: "The next piece waits without moving. Load fresh paper, then press the printer knob to begin.",
+  auto: "Caution: the next queued piece starts moving immediately, without waiting for fresh paper.",
+};
+
 function messageFrom(data, fallback = "Something went wrong") {
   if (typeof data?.detail === "string") return data.detail;
   if (Array.isArray(data?.detail)) return data.detail.map((item) => item.msg).join("; ");
@@ -51,6 +57,9 @@ function configFromForm() {
       .map((input) => Number(input.value)),
     accepting_submissions: $("#accepting-submissions").checked,
     learn_more_url: $("#learn-more-url").value.trim(),
+    queue: {
+      start_mode: $("#queue-start-mode").value,
+    },
     devices: {
       printer_port: $("#printer-port").value.trim(),
       printer_baud: numberValue("#printer-baud"),
@@ -103,6 +112,8 @@ function fillConfig(config) {
   renderAdminGridSizes(config.grid_sizes);
   $("#accepting-submissions").checked = config.accepting_submissions;
   $("#learn-more-url").value = config.learn_more_url;
+  $("#queue-start-mode").value = config.queue.start_mode;
+  updateQueueModeNote();
   $("#printer-port").value = config.devices.printer_port;
   $("#printer-baud").value = config.devices.printer_baud;
   $("#servo-port").value = config.devices.servo_port;
@@ -122,6 +133,11 @@ function fillConfig(config) {
   $("#servo-velocity").value = config.servo.velocity;
   $("#servo-acceleration").value = config.servo.acceleration;
   $("#servo-settle").value = config.servo.settle_ms;
+}
+
+function updateQueueModeNote() {
+  const mode = $("#queue-start-mode").value;
+  $("#queue-mode-note").textContent = QUEUE_MODE_COPY[mode] || "";
 }
 
 function updatePosition(position) {
@@ -172,12 +188,16 @@ function miniGrid(job) {
 
 function renderQueue() {
   const queued = state.jobs.filter((job) => job.status === "queued").sort((a, b) => a.id - b.id);
-  const active = state.jobs.find((job) => job.status === "printing");
-  const history = state.jobs.filter((job) => !["queued", "printing"].includes(job.status)).slice(0, 20);
+  const active = state.jobs.find((job) => ["waiting", "printing"].includes(job.status));
+  const history = state.jobs.filter((job) => !["queued", "waiting", "printing"].includes(job.status)).slice(0, 20);
+  const startMode = state.config.queue.start_mode;
   $("#tab-queue-count").textContent = queued.length;
   $("#queue-heading").textContent = queued.length ? `${queued.length} piece${queued.length === 1 ? "" : "s"} waiting` : "No pieces waiting";
   $("#print-next").disabled = queued.length === 0 || state.engine.busy;
+  $("#print-next").hidden = startMode !== "manual";
   $("#cancel-print").hidden = !state.engine.busy;
+  $("#cancel-print").textContent = state.engine.phase === "waiting_for_button" ? "Cancel waiting piece" : "Stop current print";
+  $("#queue-mode-status").textContent = QUEUE_MODE_COPY[startMode] || "";
 
   const activeRoot = $("#active-print");
   activeRoot.replaceChildren();
@@ -188,9 +208,14 @@ function renderQueue() {
     const details = document.createElement("div");
     const percent = active.progress_total ? Math.round(active.progress_current / active.progress_total * 100) : 0;
     const heading = document.createElement("h3");
-    heading.textContent = `Printing #${active.id}${active.artist_name ? ` · ${active.artist_name}` : ""}`;
+    const waitingForButton = active.status === "waiting";
+    heading.textContent = waitingForButton
+      ? `Paper needed for #${active.id}${active.artist_name ? ` · ${active.artist_name}` : ""}`
+      : `Printing #${active.id}${active.artist_name ? ` · ${active.artist_name}` : ""}`;
     const copy = document.createElement("p");
-    copy.textContent = `${active.progress_current} of ${active.progress_total} liquid pixels placed`;
+    copy.textContent = waitingForButton
+      ? "Load a fresh piece of paper, then press the printer knob to start."
+      : `${active.progress_current} of ${active.progress_total} liquid pixels placed`;
     const track = document.createElement("div");
     track.className = "progress-track";
     const fill = document.createElement("i");
@@ -387,9 +412,16 @@ async function refreshState({ populate = false } = {}) {
 }
 
 async function saveConfig(message = "Setup saved") {
+  const config = configFromForm();
+  const enablingImmediateStart = config.queue.start_mode === "auto" && state?.config?.queue?.start_mode !== "auto";
+  const hasQueuedPiece = state?.jobs?.some((job) => job.status === "queued");
+  if (enablingImmediateStart && hasQueuedPiece && !confirm("Immediate mode will start the next queued piece as soon as you save. Is fresh paper loaded and the machine clear?")) {
+    return false;
+  }
   try {
-    state.config = await api("/api/admin/config", { method: "PUT", body: JSON.stringify(configFromForm()) });
+    state.config = await api("/api/admin/config", { method: "PUT", body: JSON.stringify(config) });
     toast(message);
+    await refreshState();
     return true;
   } catch (error) {
     toast(error.message, true);
@@ -446,6 +478,7 @@ $("#save-config").addEventListener("click", () => saveConfig());
 $("#save-servo").addEventListener("click", () => saveConfig("Servo settings saved"));
 $("#refresh-position").addEventListener("click", refreshPosition);
 $("#read-servo").addEventListener("click", readServo);
+$("#queue-start-mode").addEventListener("change", updateQueueModeNote);
 
 $("#add-grid-size").addEventListener("click", () => {
   const size = Number($("#custom-grid-size").value);
@@ -589,7 +622,10 @@ $("#print-next").addEventListener("click", async () => {
 });
 
 $("#cancel-print").addEventListener("click", async () => {
-  if (!confirm("Stop the current print at the next safe command boundary?")) return;
+  const prompt = state.engine.phase === "waiting_for_button"
+    ? "Cancel this waiting piece? It will move to history without printing."
+    : "Stop the current print at the next safe command boundary?";
+  if (!confirm(prompt)) return;
   await hardwareAction("/api/admin/jobs/cancel-current", "Stop requested");
   await refreshState();
 });

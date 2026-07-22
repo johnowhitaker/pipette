@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 
@@ -40,6 +41,13 @@ class PipetteCoreTests(unittest.TestCase):
         self.assertEqual(origin, {"x": 0.0, "y": 0.0, "z": 0.0})
         self.assertIn("M17", self.hardware.command_log)
 
+    def test_simulated_printer_button_wait_is_motion_free(self) -> None:
+        ready = self.hardware.wait_for_printer_button(
+            self.store.get_config(), threading.Event(), "Load paper - press knob"
+        )
+        self.assertTrue(ready)
+        self.assertEqual(self.hardware.command_log, ["M0 Load paper - press knob"])
+
     def test_print_sequence_maps_cell_centers_and_purges(self) -> None:
         self.calibrated_config()
         self.store.update_color("red", {"intake_z": 6.0, "purge_z": 25.0})
@@ -69,4 +77,3 @@ class PipetteCoreTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

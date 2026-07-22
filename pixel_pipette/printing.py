@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import threading
 import time
+from collections.abc import Callable
 from typing import Any
 
 from .hardware import HardwareController
@@ -26,19 +27,25 @@ class PrintEngine:
         self._thread: threading.Thread | None = None
         self._cancel = threading.Event()
         self.current_job_id: int | None = None
+        self.current_phase = "idle"
+        self.on_success: Callable[[], None] | None = None
 
     @property
     def busy(self) -> bool:
         return bool(self._thread and self._thread.is_alive())
 
     def status(self) -> dict[str, Any]:
-        return {"busy": self.busy, "current_job_id": self.current_job_id}
+        return {
+            "busy": self.busy,
+            "current_job_id": self.current_job_id,
+            "phase": self.current_phase,
+        }
 
-    def start_next(self) -> dict[str, Any] | None:
+    def start_next(self, wait_for_button: bool = False) -> dict[str, Any] | None:
         with self._lock:
             if self.busy:
                 raise RuntimeError("A piece is already printing")
-            job = self.store.claim_next_job()
+            job = self.store.claim_next_job("waiting" if wait_for_button else "printing")
             if job is None:
                 return None
             try:
@@ -50,7 +57,13 @@ class PrintEngine:
                 raise
             self._cancel.clear()
             self.current_job_id = job["id"]
-            self._thread = threading.Thread(target=self._run, args=(job,), daemon=True, name="pipette-print")
+            self.current_phase = "waiting_for_button" if wait_for_button else "printing"
+            self._thread = threading.Thread(
+                target=self._run,
+                args=(job, wait_for_button),
+                daemon=True,
+                name="pipette-print",
+            )
             self._thread.start()
             return job
 
@@ -60,12 +73,31 @@ class PrintEngine:
         self._cancel.set()
         return True
 
+    def shutdown(self, timeout: float = 2.0) -> None:
+        """Give a staged M0 wait time to send M108 before the process exits."""
+        self.cancel()
+        thread = self._thread
+        if thread and thread is not threading.current_thread():
+            thread.join(timeout)
+
     def _check_cancelled(self) -> None:
         if self._cancel.is_set():
             raise PrintCancelled("Stopped by the operator")
 
-    def _run(self, job: dict[str, Any]) -> None:
+    def _run(self, job: dict[str, Any], wait_for_button: bool) -> None:
+        succeeded = False
         try:
+            if wait_for_button:
+                ready = self.hardware.wait_for_printer_button(
+                    self.store.get_config(),
+                    self._cancel,
+                    "Load paper - press knob",
+                )
+                if not ready:
+                    raise PrintCancelled("Stopped by the operator")
+                self._check_cancelled()
+                self.store.update_job(job["id"], status="printing")
+                self.current_phase = "printing"
             self._print_job(job)
         except PrintCancelled as exc:
             try:
@@ -79,8 +111,14 @@ class PrintEngine:
             )
         else:
             self.store.update_job(job["id"], status="completed", completed_at=utc_now())
+            succeeded = True
         finally:
-            self.current_job_id = None
+            with self._lock:
+                self.current_job_id = None
+                self.current_phase = "idle"
+                self._thread = None
+            if succeeded and self.on_success:
+                self.on_success()
 
     @staticmethod
     def _require_number(value: Any, label: str) -> float:

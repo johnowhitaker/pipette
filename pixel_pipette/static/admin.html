@@ -155,6 +155,16 @@
               <label class="toggle-label"><input id="accepting-submissions" type="checkbox"><span>Accept public submissions</span></label>
               <label class="grow-label">Learn more URL <input id="learn-more-url" type="url"></label>
             </div>
+            <div class="field-row queue-mode-row">
+              <label>How prints start
+                <select id="queue-start-mode">
+                  <option value="manual">Manual — operator starts each piece</option>
+                  <option value="printer_button">Printer knob — load paper, then click</option>
+                  <option value="auto">Immediate — start whenever one is queued</option>
+                </select>
+              </label>
+              <p id="queue-mode-note" class="inline-note"></p>
+            </div>
             <details class="advanced-settings">
               <summary>Motion tuning</summary>
               <div class="field-row">
@@ -201,7 +211,7 @@
 
         <section id="tab-queue" class="tab-panel">
           <div class="queue-toolbar">
-            <div><p class="eyebrow">Live queue</p><h2 id="queue-heading">No pieces waiting</h2></div>
+            <div><p class="eyebrow">Live queue</p><h2 id="queue-heading">No pieces waiting</h2><p id="queue-mode-status" class="inline-note"></p></div>
             <div class="button-row"><button id="cancel-print" class="danger-button" type="button" hidden>Stop current print</button><button id="print-next" class="primary-button" type="button">Print next piece</button></div>
           </div>
           <div id="active-print"></div>

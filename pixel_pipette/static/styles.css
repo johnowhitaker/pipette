@@ -146,6 +146,9 @@ label { display: grid; gap: 7px; color: var(--muted); font-size: 12px; font-weig
 .split-fields, .field-row { display: flex; gap: 12px; align-items: end; }
 .split-fields > *, .field-row > * { flex: 1 1 0; }
 .inline-note { margin: 12px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.queue-mode-row { margin-top: 16px; align-items: center; }
+.queue-mode-row > label { flex: 0 1 440px; }
+.queue-mode-row .inline-note { margin: 20px 0 0; }
 .position-readout { display: flex; gap: 5px; }
 .position-readout span, .servo-live { padding: 7px 9px; border-radius: 7px; background: #e9ece7; font: 700 11px/1 ui-monospace, monospace; }
 .calibration-steps > section { display: flex; gap: 18px; padding: 22px 0; border-top: 1px solid #e2e1da; }

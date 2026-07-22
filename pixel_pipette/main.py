@@ -8,6 +8,7 @@ import os
 import re
 import time
 from collections import defaultdict, deque
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Literal
 
@@ -103,10 +104,15 @@ class ServoConfig(BaseModel):
     settle_ms: int = Field(ge=50, le=5000)
 
 
+class QueueConfig(BaseModel):
+    start_mode: Literal["manual", "printer_button", "auto"] = "manual"
+
+
 class ConfigUpdate(BaseModel):
     grid_sizes: list[int] = Field(min_length=1, max_length=12)
     accepting_submissions: bool
     learn_more_url: str = Field(max_length=300)
+    queue: QueueConfig
     devices: DevicesConfig
     paper: PaperConfig
     motion: MotionConfig
@@ -164,7 +170,29 @@ def create_app(
     hardware = HardwareController(mode)
     engine = PrintEngine(store, hardware)
     limiter = RateLimiter()
-    app = FastAPI(title="Pipette Pixels", docs_url=None, redoc_url=None)
+
+    def maybe_start_automatic() -> None:
+        start_mode = store.get_config()["queue"]["start_mode"]
+        if start_mode == "manual" or engine.busy:
+            return
+        try:
+            engine.start_next(wait_for_button=start_mode == "printer_button")
+        except RuntimeError:
+            # A calibration error is recorded on that job by the print engine.
+            # A concurrent start is harmless and will be handled by its caller.
+            return
+
+    engine.on_success = maybe_start_automatic
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI):
+        maybe_start_automatic()
+        try:
+            yield
+        finally:
+            engine.shutdown()
+
+    app = FastAPI(title="Pipette Pixels", docs_url=None, redoc_url=None, lifespan=lifespan)
     app.state.store = store
     app.state.hardware = hardware
     app.state.engine = engine
@@ -248,6 +276,7 @@ def create_app(
         if store.queue_count() >= 100:
             raise HTTPException(status_code=503, detail="The queue is full; please try again later")
         job = store.create_job(submission.artist_name, submission.grid_size, submission.pixels)
+        maybe_start_automatic()
         return {"id": job["id"], "queue_count": store.queue_count()}
 
     @app.post("/api/admin/login")
@@ -287,7 +316,9 @@ def create_app(
         payload: ConfigUpdate, pipette_session: str | None = Cookie(default=None)
     ) -> dict[str, Any]:
         require_admin(pipette_session)
-        return store.update_config(payload.model_dump())
+        config = store.update_config(payload.model_dump())
+        maybe_start_automatic()
+        return config
 
     @app.post("/api/admin/colors", status_code=201)
     def create_color(

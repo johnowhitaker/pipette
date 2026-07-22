@@ -10,7 +10,7 @@ The hardware design uses a Dynamixel XL430 servo and control board, an Ender 3 V
 
 The app starts in **simulation mode by default**. In simulation, every UI and print-flow operation runs against virtual hardware. Connected hardware is only used when `PIPETTE_HARDWARE=real` is explicitly set.
 
-Opening the app never moves either device. Printer and servo test buttons only read their current positions. Motion happens after an operator explicitly jogs an axis, tests a saved servo position, or starts a queued print.
+Opening the app never moves either device in the default manual mode. Printer and servo test buttons only read their current positions. Motion happens after an operator explicitly jogs an axis, tests a saved servo position, starts a queued print, presses the printer knob for a staged piece, or deliberately enables immediate auto-start mode.
 
 Before a live print, verify the safe travel Z clears the paper, clips, wells, and every other obstacle. The Z buttons are intentionally separate from the XY jog pad.
 
@@ -57,7 +57,17 @@ sudo systemctl status pipette-pixels
 5. Set the paper deposit Z and a safe travel Z that clears the entire setup. Enable the public canvas sizes—8×8 and 10×10 are good demo defaults; 12×12, 16×16, and custom sizes up to 32×32 are supported—and save.
 6. Under **Liquids & servo**, release servo torque, position the plunger by hand, read it, and capture the rest, draw/dispense, and purge tick positions. The app uses non-blocking servo goals plus the configured settle delay.
 7. For each enabled color, jog over its well and capture X/Y. Capture its intake Z (tip in liquid) and purge Z (tip safely over the well), then save the well.
-8. Submit a test drawing from the public page. Review it in **Print queue** and press **Print next piece**. Public submissions never start motion automatically.
+8. Submit a test drawing from the public page and review it in **Print queue**. Start it manually for the first live test. Once everything is calibrated, choose the event queue mode described below.
+
+## Queue start modes
+
+The operator chooses how queued artwork starts under **Setup → Event settings**:
+
+- **Manual** keeps the existing workflow: every submission waits for **Print next piece** in the admin console.
+- **Printer knob** is the recommended booth workflow. The app stages the next drawing with a motion-free Marlin `M0` pause. A visitor loads fresh paper and presses the printer's knob; only that click begins the print. When it finishes, the next queued drawing is staged automatically.
+- **Immediate** starts the next submission as soon as the machine is idle and chains through the queue. Use this only when an operator is managing paper continuously.
+
+On the stock Ender 3 V3 SE firmware, the knob successfully resumes `M0`, but its display does not show the custom pause message. Put a small “Load paper, then press to print” label beside the knob. Cancelling a staged piece sends `M108` to clear the Marlin wait without moving an axis.
 
 ## Drop sequence
 

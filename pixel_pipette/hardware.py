@@ -129,6 +129,59 @@ class HardwareController:
             responses.append("ok")
         return responses
 
+    def wait_for_printer_button(
+        self,
+        config: dict[str, Any],
+        cancel_event: threading.Event,
+        message: str = "Load paper - press knob",
+    ) -> bool:
+        """Pause Marlin at M0 until the LCD knob is clicked or cancellation is requested."""
+        safe_message = "".join(character for character in message if 32 <= ord(character) < 127)[:40]
+        command = f"M0 {safe_message}".rstrip()
+        with self.lock:
+            self.command_log.append(command)
+            if self.simulated:
+                return not cancel_event.is_set()
+            try:
+                import serial
+            except ImportError as exc:
+                raise HardwareError("pyserial is not installed") from exc
+
+            devices = self._device_config(config)
+            timeout_s = float(config["motion"]["command_timeout_s"])
+            try:
+                connection = serial.Serial(
+                    port=devices["printer_port"],
+                    baudrate=int(devices["printer_baud"]),
+                    timeout=0.25,
+                    write_timeout=timeout_s,
+                )
+            except Exception as exc:
+                raise HardwareError(f"Could not open printer at {devices['printer_port']}: {exc}") from exc
+
+            try:
+                connection.reset_input_buffer()
+                connection.write((command + "\n").encode())
+                connection.flush()
+                while True:
+                    if cancel_event.is_set():
+                        # The printer firmware enables Marlin's emergency parser,
+                        # so M108 can break an M0 wait without moving any axis.
+                        connection.write(b"M108\n")
+                        connection.flush()
+                        self.command_log.append("M108")
+                        return False
+                    raw = connection.readline()
+                    if not raw:
+                        continue
+                    response = raw.decode(errors="replace").strip()
+                    if response.lower().startswith("error"):
+                        raise HardwareError(f"Printer reported: {response}")
+                    if response.lower().startswith("ok"):
+                        return True
+            finally:
+                connection.close()
+
     def read_position(self, config: dict[str, Any]) -> dict[str, float]:
         if self.simulated:
             return dict(self._position)

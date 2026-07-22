@@ -4,8 +4,8 @@ import os
 import tempfile
 import time
 import unittest
-from unittest.mock import patch
 from pathlib import Path
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -61,6 +61,17 @@ class PipetteApiTests(unittest.TestCase):
         response = self.client.put("/api/admin/colors/red", json=payload)
         self.assertEqual(response.status_code, 200, response.text)
 
+    def wait_for_job(self, job_id: int, terminal_status: str = "completed") -> dict:
+        job = None
+        for _ in range(80):
+            time.sleep(0.05)
+            jobs = self.client.get("/api/admin/state").json()["jobs"]
+            job = next(item for item in jobs if item["id"] == job_id)
+            if job["status"] == terminal_status:
+                break
+        self.assertIsNotNone(job)
+        return job
+
     def test_public_pages_and_admin_auth(self) -> None:
         self.assertEqual(self.client.get("/").status_code, 200)
         self.assertEqual(self.client.get("/admin").status_code, 200)
@@ -95,16 +106,47 @@ class PipetteApiTests(unittest.TestCase):
         started = self.client.post("/api/admin/jobs/print-next", json={})
         self.assertEqual(started.status_code, 200, started.text)
 
-        job = None
-        for _ in range(30):
-            time.sleep(0.05)
-            jobs = self.client.get("/api/admin/state").json()["jobs"]
-            job = next(item for item in jobs if item["id"] == job_id)
-            if job["status"] != "printing":
-                break
-        self.assertIsNotNone(job)
+        job = self.wait_for_job(job_id)
         self.assertEqual(job["status"], "completed", job)
         self.assertEqual(job["progress_current"], 1)
+
+    def test_immediate_mode_starts_submissions_and_chains_queue(self) -> None:
+        self.login()
+        self.calibrate_red()
+        config = self.client.get("/api/admin/state").json()["config"]
+        config["queue"]["start_mode"] = "auto"
+        response = self.client.put("/api/admin/config", json=config)
+        self.assertEqual(response.status_code, 200, response.text)
+
+        job_ids = []
+        for artist in ("First", "Second"):
+            response = self.client.post(
+                "/api/submissions",
+                json={"artist_name": artist, "grid_size": 8, "pixels": ["red"] + [None] * 63},
+            )
+            self.assertEqual(response.status_code, 201, response.text)
+            job_ids.append(response.json()["id"])
+
+        for job_id in job_ids:
+            job = self.wait_for_job(job_id)
+            self.assertEqual(job["status"], "completed", job)
+
+    def test_printer_button_mode_uses_marlin_wait_before_automatic_print(self) -> None:
+        self.login()
+        self.calibrate_red()
+        config = self.client.get("/api/admin/state").json()["config"]
+        config["queue"]["start_mode"] = "printer_button"
+        response = self.client.put("/api/admin/config", json=config)
+        self.assertEqual(response.status_code, 200, response.text)
+
+        response = self.client.post(
+            "/api/submissions",
+            json={"artist_name": "Button", "grid_size": 8, "pixels": ["red"] + [None] * 63},
+        )
+        self.assertEqual(response.status_code, 201, response.text)
+        job = self.wait_for_job(response.json()["id"])
+        self.assertEqual(job["status"], "completed", job)
+        self.assertIn("M0 Load paper - press knob", self.client.app.state.hardware.command_log)
 
     def test_empty_and_unknown_color_submissions_are_rejected(self) -> None:
         empty = self.client.post(
