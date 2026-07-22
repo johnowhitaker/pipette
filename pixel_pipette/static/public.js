@@ -2,6 +2,7 @@ const $ = (selector) => document.querySelector(selector);
 
 const appState = {
   gridSize: 8,
+  gridSizes: [8, 10],
   colors: [],
   pixels: [],
   selected: null,
@@ -26,6 +27,31 @@ async function request(url, options = {}) {
 
 function colorHex(colorId) {
   return appState.colors.find((color) => color.id === colorId)?.hex || "#fffdf7";
+}
+
+function selectGridSize(size) {
+  if (size === appState.gridSize) return;
+  if (appState.pixels.some(Boolean) && !confirm("Changing canvas size will clear your drawing. Continue?")) return;
+  appState.gridSize = size;
+  appState.pixels = Array(size ** 2).fill(null);
+  $("#canvas-size-label").textContent = `${size} × ${size} canvas`;
+  renderSizePicker();
+  renderGrid();
+}
+
+function renderSizePicker() {
+  const picker = $("#size-picker");
+  picker.replaceChildren();
+  appState.gridSizes.forEach((size) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = `${size} × ${size}`;
+    button.classList.toggle("selected", size === appState.gridSize);
+    button.setAttribute("aria-pressed", String(size === appState.gridSize));
+    button.addEventListener("click", () => selectGridSize(size));
+    picker.append(button);
+  });
+  $("#size-choice").hidden = appState.gridSizes.length < 2;
 }
 
 function renderPalette() {
@@ -101,7 +127,8 @@ function clearGrid() {
 async function loadConfig() {
   try {
     const config = await request("/api/public/config");
-    appState.gridSize = config.grid_size;
+    appState.gridSizes = config.grid_sizes;
+    appState.gridSize = config.grid_sizes[0];
     appState.colors = config.colors;
     appState.selected = config.colors[0]?.id ?? null;
     appState.pixels = Array(appState.gridSize ** 2).fill(null);
@@ -111,6 +138,7 @@ async function loadConfig() {
     $("#submit-button").disabled = !config.accepting_submissions || config.colors.length === 0;
     if (!config.accepting_submissions) $("#form-message").textContent = "Submissions are paused for a moment.";
     if (config.colors.length === 0) $("#form-message").textContent = "The operator is still loading the colors.";
+    renderSizePicker();
     renderPalette();
     renderGrid();
   } catch (error) {

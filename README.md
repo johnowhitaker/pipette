@@ -2,7 +2,7 @@
 
 A Raspberry Pi web app for turning crowd-submitted pixel art into liquid-drop drawings with a 3D-printer-mounted micropipette.
 
-The public page is a mobile-friendly 8×8 or 10×10 editor. Submissions enter a persistent queue. The password-protected operator console handles printer and Dynamixel connections, paper calibration, color-well positions, pipette-plunger positions, and the print queue.
+The public page is a mobile-friendly pixel editor whose available canvas sizes are chosen by the operator. Submissions enter a persistent queue. The password-protected operator console handles printer and Dynamixel connections, paper calibration, color-well positions, pipette-plunger positions, and the print queue.
 
 The hardware design uses a Dynamixel XL430 servo and control board, an Ender 3 V3 SE, a Raspberry Pi, and an adjustable 20–200 µL pipette. The mount CAD is [on Onshape](https://cad.onshape.com/documents/42cf135ce4b1a1a34746c4ee/w/bec91f2a6df1f3690807754b/e/98be9c73e6b42ac109d81153?renderMode=0&uiState=697f9facc65afbdb14e9a4b1).
 
@@ -52,7 +52,7 @@ sudo systemctl status pipette-pixels
 2. In **Connections**, save the serial settings and test the printer and servo. Defaults are `/dev/ttyUSB0` at 115200 baud and `/dev/ttyACM0` at 1,000,000 baud, Dynamixel ID 1.
 3. Release the printer steppers. Manually position the pipette tip at the paper surface in the top-left corner. Press **Set current point as origin**. This sends `G92 X0 Y0 Z0` and locks the steppers.
 4. Jog in X and Y to the paper's bottom-right corner and capture the current X/Y. This supports arbitrary rectangular offcuts as well as the usual 80 mm square.
-5. Set the paper deposit Z and a safe travel Z that clears the entire setup. Choose the public canvas size and save.
+5. Set the paper deposit Z and a safe travel Z that clears the entire setup. Enable the public canvas sizes—8×8 and 10×10 are good demo defaults; 12×12, 16×16, and custom sizes up to 32×32 are supported—and save.
 6. Under **Liquids & servo**, release servo torque, position the plunger by hand, read it, and capture the rest, draw/dispense, and purge tick positions. The app uses non-blocking servo goals plus the configured settle delay.
 7. For each enabled color, jog over its well and capture X/Y. Capture its intake Z (tip in liquid) and purge Z (tip safely over the well), then save the well.
 8. Submit a test drawing from the public page. Review it in **Print queue** and press **Print next piece**. Public submissions never start motion automatically.

@@ -26,7 +26,7 @@ STATIC_DIR = PACKAGE_DIR / "static"
 
 class Submission(BaseModel):
     artist_name: str = Field(default="", max_length=40)
-    grid_size: Literal[8, 10]
+    grid_size: int = Field(ge=4, le=32)
     pixels: list[str | None]
 
     @field_validator("artist_name")
@@ -80,13 +80,21 @@ class ServoConfig(BaseModel):
 
 
 class ConfigUpdate(BaseModel):
-    grid_size: Literal[8, 10]
+    grid_sizes: list[int] = Field(min_length=1, max_length=12)
     accepting_submissions: bool
     learn_more_url: str = Field(max_length=300)
     devices: DevicesConfig
     paper: PaperConfig
     motion: MotionConfig
     servo: ServoConfig
+
+    @field_validator("grid_sizes")
+    @classmethod
+    def valid_grid_sizes(cls, values: list[int]) -> list[int]:
+        sizes = sorted(set(values))
+        if any(size < 4 or size > 32 for size in sizes):
+            raise ValueError("Canvas sizes must be between 4 and 32 pixels")
+        return sizes
 
 
 class ColorInput(BaseModel):
@@ -186,7 +194,7 @@ def create_app(
             for color in store.list_colors(enabled_only=True)
         ]
         return {
-            "grid_size": config["grid_size"],
+            "grid_sizes": config["grid_sizes"],
             "colors": colors,
             "queue_count": store.queue_count(),
             "accepting_submissions": config["accepting_submissions"],
@@ -201,8 +209,11 @@ def create_app(
         config = store.get_config()
         if not config["accepting_submissions"]:
             raise HTTPException(status_code=503, detail="Submissions are paused right now")
-        if submission.grid_size != config["grid_size"]:
-            raise HTTPException(status_code=409, detail="The canvas size changed; refresh and try again")
+        if submission.grid_size not in config["grid_sizes"]:
+            raise HTTPException(
+                status_code=409,
+                detail="That canvas size is no longer available; refresh and try again",
+            )
         if len(submission.pixels) != submission.grid_size**2:
             raise HTTPException(status_code=422, detail="The pixel grid has the wrong size")
         allowed = {color["id"] for color in store.list_colors(enabled_only=True)}
@@ -389,4 +400,3 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run("pixel_pipette.main:app", host="0.0.0.0", port=8000, reload=False)
-

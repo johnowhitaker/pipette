@@ -46,7 +46,9 @@ function formatNumber(value) {
 
 function configFromForm() {
   return {
-    grid_size: Number($("#grid-size").value),
+    grid_sizes: $$('[data-admin-grid-size]')
+      .filter((input) => input.checked)
+      .map((input) => Number(input.value)),
     accepting_submissions: $("#accepting-submissions").checked,
     learn_more_url: $("#learn-more-url").value.trim(),
     devices: {
@@ -79,8 +81,26 @@ function configFromForm() {
   };
 }
 
+function renderAdminGridSizes(enabledSizes) {
+  const root = $("#admin-grid-sizes");
+  const choices = [...new Set([8, 10, 12, 16, ...enabledSizes])].sort((a, b) => a - b);
+  root.replaceChildren();
+  choices.forEach((size) => {
+    const label = document.createElement("label");
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.value = size;
+    input.dataset.adminGridSize = "";
+    input.checked = enabledSizes.includes(size);
+    const text = document.createElement("span");
+    text.textContent = `${size} × ${size}`;
+    label.append(input, text);
+    root.append(label);
+  });
+}
+
 function fillConfig(config) {
-  $("#grid-size").value = config.grid_size;
+  renderAdminGridSizes(config.grid_sizes);
   $("#accepting-submissions").checked = config.accepting_submissions;
   $("#learn-more-url").value = config.learn_more_url;
   $("#printer-port").value = config.devices.printer_port;
@@ -426,6 +446,20 @@ $("#save-config").addEventListener("click", () => saveConfig());
 $("#save-servo").addEventListener("click", () => saveConfig("Servo settings saved"));
 $("#refresh-position").addEventListener("click", refreshPosition);
 $("#read-servo").addEventListener("click", readServo);
+
+$("#add-grid-size").addEventListener("click", () => {
+  const size = Number($("#custom-grid-size").value);
+  if (!Number.isInteger(size) || size < 4 || size > 32) {
+    toast("Choose a whole-number canvas size from 4 to 32", true);
+    return;
+  }
+  const enabled = $$('[data-admin-grid-size]')
+    .filter((input) => input.checked)
+    .map((input) => Number(input.value));
+  renderAdminGridSizes([...enabled, size]);
+  $("#custom-grid-size").value = "";
+  toast(`${size} × ${size} added — save setup when ready`);
+});
 
 $("#scan-ports").addEventListener("click", async () => {
   try {

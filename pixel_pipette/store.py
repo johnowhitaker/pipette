@@ -13,7 +13,7 @@ from uuid import uuid4
 
 
 DEFAULT_CONFIG: dict[str, Any] = {
-    "grid_size": 8,
+    "grid_sizes": [8, 10],
     "accepting_submissions": True,
     "learn_more_url": "https://johnowhitaker.dev",
     "devices": {
@@ -285,4 +285,3 @@ class Store:
                    WHERE status='printing'""",
                 (utc_now(),),
             )
-

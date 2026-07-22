@@ -131,7 +131,17 @@
                   <div class="field-row">
                     <label>Safe travel Z <input id="travel-z" type="number" step="0.1"></label>
                     <label>Paper deposit Z <input id="deposit-z" type="number" step="0.1"></label>
-                    <label>Canvas <select id="grid-size"><option value="8">8 × 8</option><option value="10">10 × 10</option></select></label>
+                  </div>
+                  <div class="admin-size-control">
+                    <div>
+                      <strong>Public canvas sizes</strong>
+                      <span>Visitors can choose any enabled size.</span>
+                    </div>
+                    <div id="admin-grid-sizes" class="admin-size-options"></div>
+                    <div class="custom-size-control">
+                      <input id="custom-grid-size" type="number" min="4" max="32" placeholder="Custom" aria-label="Custom canvas size">
+                      <button id="add-grid-size" class="secondary-button" type="button">Add size</button>
+                    </div>
                   </div>
                   <p class="inline-note">Travel Z must clear the paper, clips, and all wells. Deposit Z is the pipette height when placing a drop.</p>
                 </div>
@@ -205,4 +215,3 @@
     <script src="/static/admin.js" defer></script>
   </body>
 </html>
-

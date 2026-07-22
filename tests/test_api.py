@@ -52,7 +52,7 @@ class PipetteApiTests(unittest.TestCase):
         self.assertEqual(self.client.get("/").status_code, 200)
         self.assertEqual(self.client.get("/admin").status_code, 200)
         public = self.client.get("/api/public/config").json()
-        self.assertEqual(public["grid_size"], 8)
+        self.assertEqual(public["grid_sizes"], [8, 10])
         self.assertEqual(len(public["colors"]), 3)
         self.assertEqual(self.client.get("/api/admin/state").status_code, 401)
         self.assertEqual(
@@ -104,6 +104,27 @@ class PipetteApiTests(unittest.TestCase):
             json={"artist_name": "", "grid_size": 8, "pixels": ["chartreuse"] + [None] * 63},
         )
         self.assertEqual(unknown.status_code, 422)
+
+    def test_admin_controls_available_canvas_sizes(self) -> None:
+        disabled = self.client.post(
+            "/api/submissions",
+            json={"artist_name": "", "grid_size": 12, "pixels": ["red"] + [None] * 143},
+        )
+        self.assertEqual(disabled.status_code, 409)
+
+        self.login()
+        state = self.client.get("/api/admin/state").json()
+        config = state["config"]
+        config["grid_sizes"] = [8, 10, 12, 16]
+        updated = self.client.put("/api/admin/config", json=config)
+        self.assertEqual(updated.status_code, 200, updated.text)
+        self.assertEqual(updated.json()["grid_sizes"], [8, 10, 12, 16])
+
+        enabled = self.client.post(
+            "/api/submissions",
+            json={"artist_name": "Large", "grid_size": 12, "pixels": ["red"] + [None] * 143},
+        )
+        self.assertEqual(enabled.status_code, 201, enabled.text)
 
 
 if __name__ == "__main__":
