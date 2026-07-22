@@ -30,6 +30,9 @@ Edit `.env` before exposing the app. Change the password and session secret; lea
 ```bash
 python3 -c 'import secrets; print(secrets.token_hex(32))'
 nano .env
+set -a
+source .env
+set +a
 python3 api_server.py
 ```
 
