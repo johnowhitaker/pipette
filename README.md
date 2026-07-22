@@ -84,9 +84,10 @@ Useful environment variables:
 
 ## Development checks
 
-Core queue, calibration, coordinate mapping, and simulated print-flow tests use only the Python standard library:
+Install the small HTTP test dependency, then run the queue, authentication, calibration, coordinate-mapping, and full simulated print-flow checks:
 
 ```bash
+pip install -r requirements-dev.txt
 python3 -m unittest discover -s tests -v
 ```
 
