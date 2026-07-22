@@ -61,6 +61,18 @@ class PipetteCoreTests(unittest.TestCase):
         self.assertIn("G1 X5.000 Y5.000", commands)
         self.assertGreaterEqual(commands.count("G1 Z25.000"), 2)
         self.assertIn("SERVO 1010", commands)
+
+        # The first pickup must pre-press directly from rest to draw while the
+        # tip is above the well. A purge-before-draw here can aspirate at purge Z.
+        first_intake = self.hardware.command_log.index("G1 Z6.000 F300")
+        servo_goals_before_intake = [
+            command
+            for command in self.hardware.command_log[:first_intake]
+            if command.startswith("SERVO ")
+        ]
+        self.assertEqual(servo_goals_before_intake, ["SERVO 1100", "SERVO 1060"])
+        self.assertGreater(self.hardware.command_log.index("SERVO 1010"), first_intake)
+
         self.assertEqual(self.hardware.read_servo_position(self.store.get_config()), 1100)
         updated = next(item for item in self.store.list_jobs() if item["id"] == job["id"])
         self.assertEqual(updated["progress_current"], 1)

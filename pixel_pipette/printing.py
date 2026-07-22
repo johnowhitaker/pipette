@@ -193,13 +193,13 @@ class PrintEngine:
             target_x = right * ((column + 0.5) / grid_size)
             target_y = bottom * ((row + 0.5) / grid_size)
 
-            # Empty any unknown residual liquid before the first draw. Later drops
-            # have already been purged at the end of the preceding cycle.
+            # Begin every pickup from the known empty/rest state. The preceding
+            # drop (or the previous job) already purged the tip. Purging here on
+            # the first drop would release the plunger at purge height before the
+            # tip reaches the liquid, which can aspirate from the wrong height.
             self.hardware.move(config, z=travel_z)
             self.hardware.move(config, x=float(color["x"]), y=float(color["y"]))
             self.hardware.move(config, z=float(color["purge_z"]))
-            if completed == 0:
-                self._settle_servo(config, purge)
             self._settle_servo(config, draw)
 
             # Dip and release the plunger to aspirate one drop.
