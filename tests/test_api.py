@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import os
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from pixel_pipette.main import create_app
+from pixel_pipette.main import create_app, load_env_file
 
 
 class PipetteApiTests(unittest.TestCase):
@@ -27,6 +29,17 @@ class PipetteApiTests(unittest.TestCase):
     def login(self) -> None:
         response = self.client.post("/api/admin/login", json={"password": "test-password"})
         self.assertEqual(response.status_code, 200)
+
+    def test_env_file_is_loaded_without_overriding_exports(self) -> None:
+        env_path = Path(self.temp_dir.name) / ".env"
+        env_path.write_text(
+            "PIPETTE_TEST_FROM_FILE=loaded\nPIPETTE_TEST_EXISTING=file-value\n",
+            encoding="utf-8",
+        )
+        with patch.dict("os.environ", {"PIPETTE_TEST_EXISTING": "exported-value"}, clear=False):
+            load_env_file(env_path)
+            self.assertEqual(os.environ["PIPETTE_TEST_FROM_FILE"], "loaded")
+            self.assertEqual(os.environ["PIPETTE_TEST_EXISTING"], "exported-value")
 
     def calibrate_red(self) -> None:
         state = self.client.get("/api/admin/state").json()

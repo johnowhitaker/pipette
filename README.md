@@ -30,11 +30,10 @@ Edit `.env` before exposing the app. Change the password and session secret; lea
 ```bash
 python3 -c 'import secrets; print(secrets.token_hex(32))'
 nano .env
-set -a
-source .env
-set +a
 python3 api_server.py
 ```
+
+The app loads `~/pipette/.env` automatically and prints `Pipette Pixels hardware mode: SIMULATE` or `REAL` before starting the server.
 
 Open `http://rpi.local:8000/` for the public canvas and `http://rpi.local:8000/admin` for the operator console. The fallback admin password is `letmein123` if no environment value is set.
 
