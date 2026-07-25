@@ -30,6 +30,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "bottom_right_x": None,
         "bottom_right_y": None,
         "deposit_z": 0.0,
+        "drop_release_pulse_enabled": True,
+        "drop_release_lift_mm": 1.0,
     },
     "motion": {
         "travel_z": 30.0,

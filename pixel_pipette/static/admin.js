@@ -71,6 +71,8 @@ function configFromForm() {
       bottom_right_x: numberValue("#paper-x", true),
       bottom_right_y: numberValue("#paper-y", true),
       deposit_z: numberValue("#deposit-z"),
+      drop_release_pulse_enabled: $("#drop-release-enabled").checked,
+      drop_release_lift_mm: numberValue("#drop-release-lift"),
     },
     motion: {
       travel_z: numberValue("#travel-z"),
@@ -122,6 +124,9 @@ function fillConfig(config) {
   $("#paper-x").value = formatNumber(config.paper.bottom_right_x);
   $("#paper-y").value = formatNumber(config.paper.bottom_right_y);
   $("#deposit-z").value = config.paper.deposit_z;
+  $("#drop-release-enabled").checked = config.paper.drop_release_pulse_enabled;
+  $("#drop-release-lift").value = config.paper.drop_release_lift_mm;
+  updateDropReleaseControls();
   $("#travel-z").value = config.motion.travel_z;
   $("#xy-feed").value = config.motion.xy_feed;
   $("#z-feed").value = config.motion.z_feed;
@@ -138,6 +143,10 @@ function fillConfig(config) {
 function updateQueueModeNote() {
   const mode = $("#queue-start-mode").value;
   $("#queue-mode-note").textContent = QUEUE_MODE_COPY[mode] || "";
+}
+
+function updateDropReleaseControls() {
+  $("#drop-release-lift").disabled = !$("#drop-release-enabled").checked;
 }
 
 function updatePosition(position) {
@@ -479,6 +488,7 @@ $("#save-servo").addEventListener("click", () => saveConfig("Servo settings save
 $("#refresh-position").addEventListener("click", refreshPosition);
 $("#read-servo").addEventListener("click", readServo);
 $("#queue-start-mode").addEventListener("change", updateQueueModeNote);
+$("#drop-release-enabled").addEventListener("change", updateDropReleaseControls);
 
 $("#add-grid-size").addEventListener("click", () => {
   const size = Number($("#custom-grid-size").value);

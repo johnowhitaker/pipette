@@ -181,6 +181,19 @@ class PipetteApiTests(unittest.TestCase):
         )
         self.assertEqual(enabled.status_code, 201, enabled.text)
 
+    def test_admin_controls_drop_release_pulse(self) -> None:
+        self.login()
+        config = self.client.get("/api/admin/state").json()["config"]
+        self.assertTrue(config["paper"]["drop_release_pulse_enabled"])
+        self.assertEqual(config["paper"]["drop_release_lift_mm"], 1.0)
+
+        config["paper"]["drop_release_pulse_enabled"] = False
+        config["paper"]["drop_release_lift_mm"] = 2.5
+        updated = self.client.put("/api/admin/config", json=config)
+        self.assertEqual(updated.status_code, 200, updated.text)
+        self.assertFalse(updated.json()["paper"]["drop_release_pulse_enabled"])
+        self.assertEqual(updated.json()["paper"]["drop_release_lift_mm"], 2.5)
+
 
 if __name__ == "__main__":
     unittest.main()

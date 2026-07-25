@@ -75,10 +75,12 @@ Each colored pixel is mapped to the center of its grid cell between the calibrat
 
 1. moves at safe travel Z to the color well;
 2. pre-presses the plunger, lowers to that well's intake Z, and returns to rest to aspirate;
-3. lifts to safe travel Z, moves to the pixel center, lowers to the paper deposit Z, presses to the draw/dispense position, lifts 1 mm, and briefly presses to purge position to release the drop from the tip;
+3. lifts to safe travel Z, moves to the pixel center, lowers to the paper deposit Z, and presses to the draw/dispense position. If the configurable drop-release pulse is enabled, it then lifts by the configured distance and briefly presses to purge position;
 4. lifts while still pressed, returns to that color's purge Z, and releases the servo to rest.
 
 Printer moves use `M400` completion. Servo moves do not wait for an exact PID position; they use the operator-configured timing delay instead.
+
+The drop-release purge pulse can be enabled, disabled, and given a custom lift distance under **Setup → Set drawing clearances**. It defaults to enabled at 1 mm. When disabled, the full purge happens over the color well instead.
 
 ## Data and configuration
 

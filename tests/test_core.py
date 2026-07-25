@@ -97,6 +97,43 @@ class PipetteCoreTests(unittest.TestCase):
         updated = next(item for item in self.store.list_jobs() if item["id"] == job["id"])
         self.assertEqual(updated["progress_current"], 1)
 
+    def test_drop_release_pulse_uses_configured_lift_height(self) -> None:
+        self.calibrated_config()
+        self.store.update_config({"paper": {"drop_release_lift_mm": 2.5}})
+        self.store.update_color("red", {"intake_z": 6.0, "purge_z": 25.0})
+        job = self.store.create_job("", 8, ["red"] + [None] * 63)
+
+        PrintEngine(self.store, self.hardware)._print_job(job)
+
+        purge_height = self.hardware.command_log.index("G1 Z2.500 F300")
+        self.assertEqual(self.hardware.command_log[purge_height + 1], "SERVO 1010")
+
+    def test_disabled_drop_release_pulse_purges_over_well(self) -> None:
+        self.calibrated_config()
+        self.store.update_config({"paper": {"drop_release_pulse_enabled": False}})
+        self.store.update_color("red", {"intake_z": 6.0, "purge_z": 25.0})
+        job = self.store.create_job("", 8, ["red"] + [None] * 63)
+
+        PrintEngine(self.store, self.hardware)._print_job(job)
+
+        deposit_height = self.hardware.command_log.index("G1 Z0.000 F300")
+        travel_after_deposit = self.hardware.command_log.index(
+            "G1 Z30.000 F300", deposit_height
+        )
+        servo_goals_before_lift = [
+            command
+            for command in self.hardware.command_log[deposit_height:travel_after_deposit]
+            if command.startswith("SERVO ")
+        ]
+        purge_over_well = self.hardware.command_log.index(
+            "SERVO 1010", travel_after_deposit
+        )
+        well_height = self.hardware.command_log.index(
+            "G1 Z25.000 F300", travel_after_deposit
+        )
+        self.assertEqual(servo_goals_before_lift, ["SERVO 1060"])
+        self.assertGreater(purge_over_well, well_height)
+
     def test_uncalibrated_color_is_rejected_before_motion(self) -> None:
         self.calibrated_config()
         job = self.store.create_job("", 8, ["blue"] + [None] * 63)

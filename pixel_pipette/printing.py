@@ -159,9 +159,15 @@ class PrintEngine:
                 self._require_number(color[field], f"{color['name']} {label}")
             if travel_z < max(float(color["intake_z"]), float(color["purge_z"])):
                 raise PrintConfigurationError(f"Safe travel Z must be above both {color['name']} well heights")
-        if travel_z < float(paper["deposit_z"]) + 1.0:
+        deposit_z = float(paper["deposit_z"])
+        pulse_lift = (
+            float(paper["drop_release_lift_mm"])
+            if paper["drop_release_pulse_enabled"]
+            else 0.0
+        )
+        if travel_z < deposit_z + pulse_lift:
             raise PrintConfigurationError(
-                "Safe travel Z must be at least 1 mm above the paper deposit Z"
+                "Safe travel Z must be at or above the drop-release pulse height"
             )
         return config, colors
 
@@ -182,6 +188,8 @@ class PrintEngine:
         right = float(paper["bottom_right_x"])
         bottom = float(paper["bottom_right_y"])
         deposit_z = float(paper["deposit_z"])
+        pulse_enabled = bool(paper["drop_release_pulse_enabled"])
+        pulse_lift = float(paper["drop_release_lift_mm"])
 
         self._settle_servo(config, rest)
         self.hardware.move(config, z=travel_z)
@@ -214,16 +222,19 @@ class PrintEngine:
             self.hardware.move(config, z=deposit_z)
             self._settle_servo(config, draw)
 
-            # Lift one millimetre before the purge-position air pulse so it
-            # releases the drop without adding liquid directly at paper height.
-            self.hardware.move(config, z=deposit_z + 1.0)
-            self._settle_servo(config, purge)
+            if pulse_enabled:
+                # Lift by the configured distance before the purge-position air
+                # pulse so it releases the drop above the paper.
+                self.hardware.move(config, z=deposit_z + pulse_lift)
+                self._settle_servo(config, purge)
 
-            # Continue lifting while still pressed so the pulse cannot aspirate
-            # the drop again, then release back to rest over its own well.
+            # Continue lifting, return over the well, and finish the purge/rest
+            # cleanup there when the paper-side release pulse is disabled.
             self.hardware.move(config, z=travel_z)
             self.hardware.move(config, x=float(color["x"]), y=float(color["y"]))
             self.hardware.move(config, z=float(color["purge_z"]))
+            if not pulse_enabled:
+                self._settle_servo(config, purge)
             self._settle_servo(config, rest)
             completed += 1
             self.store.update_job(job["id"], progress_current=completed)

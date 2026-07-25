@@ -85,6 +85,8 @@ class PaperConfig(BaseModel):
     bottom_right_x: float | None = Field(default=None, ge=-500, le=500)
     bottom_right_y: float | None = Field(default=None, ge=-500, le=500)
     deposit_z: float = Field(ge=-20, le=300)
+    drop_release_pulse_enabled: bool = True
+    drop_release_lift_mm: float = Field(default=1.0, ge=0, le=20)
 
 
 class MotionConfig(BaseModel):
