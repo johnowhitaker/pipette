@@ -159,8 +159,10 @@ class PrintEngine:
                 self._require_number(color[field], f"{color['name']} {label}")
             if travel_z < max(float(color["intake_z"]), float(color["purge_z"])):
                 raise PrintConfigurationError(f"Safe travel Z must be above both {color['name']} well heights")
-        if travel_z < float(paper["deposit_z"]):
-            raise PrintConfigurationError("Safe travel Z must be above the paper deposit Z")
+        if travel_z < float(paper["deposit_z"]) + 1.0:
+            raise PrintConfigurationError(
+                "Safe travel Z must be at least 1 mm above the paper deposit Z"
+            )
         return config, colors
 
     def _settle_servo(self, config: dict[str, Any], goal: int) -> None:
@@ -212,11 +214,16 @@ class PrintEngine:
             self.hardware.move(config, z=deposit_z)
             self._settle_servo(config, draw)
 
-            # Clear the remainder back over its own well before changing color.
+            # Lift one millimetre before the purge-position air pulse so it
+            # releases the drop without adding liquid directly at paper height.
+            self.hardware.move(config, z=deposit_z + 1.0)
+            self._settle_servo(config, purge)
+
+            # Continue lifting while still pressed so the pulse cannot aspirate
+            # the drop again, then release back to rest over its own well.
             self.hardware.move(config, z=travel_z)
             self.hardware.move(config, x=float(color["x"]), y=float(color["y"]))
             self.hardware.move(config, z=float(color["purge_z"]))
-            self._settle_servo(config, purge)
             self._settle_servo(config, rest)
             completed += 1
             self.store.update_job(job["id"], progress_current=completed)

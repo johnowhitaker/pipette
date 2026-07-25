@@ -73,6 +73,26 @@ class PipetteCoreTests(unittest.TestCase):
         self.assertEqual(servo_goals_before_intake, ["SERVO 1100", "SERVO 1060"])
         self.assertGreater(self.hardware.command_log.index("SERVO 1010"), first_intake)
 
+        # At the paper, dispense normally, lift exactly 1 mm, and only then
+        # pulse to purge position before continuing to safe travel height.
+        deposit_height = self.hardware.command_log.index("G1 Z0.000 F300")
+        purge_height = self.hardware.command_log.index("G1 Z1.000 F300", deposit_height)
+        travel_after_deposit = self.hardware.command_log.index(
+            "G1 Z30.000 F300", purge_height
+        )
+        servo_goals_at_deposit = [
+            command
+            for command in self.hardware.command_log[deposit_height:purge_height]
+            if command.startswith("SERVO ")
+        ]
+        servo_goals_at_purge_height = [
+            command
+            for command in self.hardware.command_log[purge_height:travel_after_deposit]
+            if command.startswith("SERVO ")
+        ]
+        self.assertEqual(servo_goals_at_deposit, ["SERVO 1060"])
+        self.assertEqual(servo_goals_at_purge_height, ["SERVO 1010"])
+
         self.assertEqual(self.hardware.read_servo_position(self.store.get_config()), 1100)
         updated = next(item for item in self.store.list_jobs() if item["id"] == job["id"])
         self.assertEqual(updated["progress_current"], 1)
